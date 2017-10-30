@@ -1,0 +1,70 @@
+#!/bin/bash
+
+if command -v virtualenv >/dev/null 2>&1 ; then
+    echo virtualenv found
+else
+    echo virtualenv not found, you need to install it to use this script
+    exit
+fi
+
+
+echo "which version of python would you like to use (default is python 2.7)?"
+echo press enter to use the default
+read pythonVersion
+
+echo creating 'webapps' directory
+mkdir webapps
+
+echo entering into created directory
+cd webapps
+
+echo creating a virtual environment for your repository
+virtualenv --python=python$pythonVersion hc-venv
+
+echo activating virtual environment
+source hc-venv/bin/activate
+
+echo cloning 'healthchecks-a-team' repository here
+git clone https://github.com/andela/healthchecks-a-team.git
+
+echo installing dependancies
+pip install -r healthchecks-a-team/requirements.txt
+
+echo logging in as default postrges user and creating default healthchecks database
+psql postgres -c "CREATE DATABASE hcc"
+
+echo creating localdatabase settings
+echo "DATABASES = {
+    'default': {
+        'ENGINE':   'django.db.backends.postgresql',
+        'NAME':     'hcc',
+        'USER':     'postgres',
+        'PASSWORD': '',
+        'TEST': {'CHARSET': 'UTF8'}
+    }
+}" >> local_settings.py
+cp local_settings.py healthchecks-a-team/hc
+rm local_settings.py
+
+echo healthchecks setup
+cd healthchecks-a-team
+
+clear
+echo creating database tables
+./manage.py migrate
+
+clear
+echo creating database triggers
+./manage.py ensuretriggers
+
+clear
+echo creating a superusr
+./manage.py createsuperuser
+
+clear
+echo running tests
+./manage.py test
+
+clear
+echo running the server
+./manage.py runserver
